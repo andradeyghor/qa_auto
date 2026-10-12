@@ -1,6 +1,41 @@
+import os
+
+import requests
 import streamlit as st
 import streamlit.components.v1 as components
-import time
+
+API_URL = os.getenv("QA_API_URL", "http://localhost:8000")
+
+
+def modelo_para_mermaid(modelo: dict) -> str:
+    """Converte o modelo MBT em stateDiagram-v2 (visualização provisória)."""
+    linhas = ["stateDiagram-v2", f"    [*] --> {modelo['inicial']}"]
+    for t in modelo["transicoes"]:
+        evento = t["evento"].replace(":", " ")
+        linhas.append(f"    {t['de']} --> {t['para']} : {evento}")
+    return "\n".join(linhas)
+
+
+def chamar_backend(user_story: str, criterios: str, motor: str) -> dict:
+    """Envia os requisitos ao backend. Lança RuntimeError com mensagem amigável em caso de erro."""
+    try:
+        resp = requests.post(
+            f"{API_URL}/gerar",
+            json={"user_story": user_story, "criterios": criterios, "motor": motor},
+            timeout=180,
+        )
+    except requests.ConnectionError:
+        raise RuntimeError(
+            "Não foi possível conectar ao backend. Inicie-o com: uvicorn backend.main:app --reload"
+        )
+    except requests.Timeout:
+        raise RuntimeError("O backend demorou demais para responder.")
+    if resp.status_code == 200:
+        return resp.json()
+    detalhe = resp.json().get("detail", resp.text)
+    if isinstance(detalhe, list):  # erros de validação do Pydantic
+        detalhe = "; ".join(d.get("msg", "").replace("Value error, ", "") for d in detalhe)
+    raise RuntimeError(str(detalhe))
 
 # 1. Configuração da Página
 st.set_page_config(
@@ -58,59 +93,19 @@ with col_output:
     st.subheader("2. Artefatos Gerados (MBT & BDD)")
     
     if gerar_btn:
-        with st.spinner(f"Processando requisitos com {modelo_selecionado}... Extraindo Estados e Transições..."):
-            time.sleep(2) # Mock do processamento LLM
-            
-            mock_mermaid = """
-            stateDiagram-v2
-                [*] --> Deslogado
-                Deslogado --> ValidandoCredenciais : Submeter Login
-                ValidandoCredenciais --> Dashboard : Sucesso
-                ValidandoCredenciais --> Deslogado : Falha (Tentativas < 3)
-                ValidandoCredenciais --> ContaBloqueada : Falha (Tentativas >= 3)
-                Dashboard --> [*]
-            """
-            
-            mock_gherkin = """Feature: Login do Cliente Bancário
-  Como um cliente bancário
-  Quero realizar o login no sistema
-  Para acessar minha conta corrente
+        try:
+            with st.spinner(f"Processando requisitos com {modelo_selecionado}... Extraindo Estados e Transições..."):
+                modelo = chamar_backend(user_story, criterios, modelo_selecionado)
+        except RuntimeError as e:
+            st.error(str(e))
+        else:
+            tab1, tab2 = st.tabs(["📊 Grafo de Estados (Mermaid)", "🧩 Modelo MBT (JSON)"])
 
-  Scenario: Login com sucesso
-    Given que o usuário está no estado "Deslogado"
-    When submeter as credenciais corretas
-    Then o sistema transita para o estado "Dashboard"
-"""
-            mock_pytest = """import pytest
-from pytest_bdd import scenarios, given, when, then
-
-scenarios('login.feature')
-
-@given('que o usuário está no estado "Deslogado"')
-def estado_inicial():
-    pass
-
-@when('submeter as credenciais corretas')
-def submeter_credenciais():
-    pass
-
-@then('o sistema transita para o estado "Dashboard"')
-def validar_dashboard():
-    assert True
-"""
-
-            tab1, tab2, tab3 = st.tabs(["📊 Grafo de Estados (Mermaid)", "📝 Cenários BDD (Gherkin)", "💻 Script (Pytest)"])
-            
             with tab1:
                 st.markdown("Visualização da extração estruturada de nós e transições críticas.")
-                render_mermaid(mock_mermaid)
-                
+                render_mermaid(modelo_para_mermaid(modelo))
+
             with tab2:
-                st.code(mock_gherkin, language="gherkin")
-                st.download_button("Baixar login.feature", data=mock_gherkin, file_name="login.feature", mime="text/plain")
-                
-            with tab3:
-                st.code(mock_pytest, language="python")
-                st.download_button("Baixar test_login.py", data=mock_pytest, file_name="test_login.py", mime="text/x-python")
+                st.json(modelo)
     else:
         st.info("👈 Preencha os requisitos e clique em gerar para visualizar a análise MBT.")
