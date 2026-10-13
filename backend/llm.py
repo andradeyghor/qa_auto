@@ -15,13 +15,15 @@ class ErroLLM(Exception):
     """Falha ao se comunicar com o motor LLM (chave, rede, serviço fora do ar...)."""
 
 
-def _chamar_gemini(system: str, mensagens: list[dict]) -> str:
+def _chamar_gemini(system: str, mensagens: list[dict], api_key: str | None = None) -> str:
     from google import genai
     from google.genai import types
 
-    chave = os.getenv("GEMINI_API_KEY")
+    chave = api_key or os.getenv("GEMINI_API_KEY")
     if not chave:
-        raise ErroLLM("GEMINI_API_KEY não configurada. Defina-a no arquivo .env.")
+        raise ErroLLM(
+            "GEMINI_API_KEY não configurada. Defina-a no arquivo .env ou informe na barra lateral."
+        )
     modelo = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     contents = [
         types.Content(
@@ -70,9 +72,9 @@ def _chamar_ollama(system: str, mensagens: list[dict]) -> str:
         ) from e
 
 
-def chamar_llm(motor: str, system: str, mensagens: list[dict]) -> str:
+def chamar_llm(motor: str, system: str, mensagens: list[dict], api_key: str | None = None) -> str:
     if motor == "Gemini (Cloud)":
-        return _chamar_gemini(system, mensagens)
+        return _chamar_gemini(system, mensagens, api_key=api_key)
     if motor == "Ollama (Local)":
         return _chamar_ollama(system, mensagens)
     raise ErroLLM(f"Motor desconhecido: {motor}")

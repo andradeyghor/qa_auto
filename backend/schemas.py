@@ -11,6 +11,7 @@ class Requisicao(BaseModel):
     user_story: str
     criterios: str
     motor: Literal["Gemini (Cloud)", "Ollama (Local)"]
+    api_key: str | None = None
 
     @field_validator("user_story", "criterios")
     @classmethod

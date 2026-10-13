@@ -11,7 +11,10 @@ def gerar_modelo(req: Requisicao, chamar=chamar_llm) -> ModeloMBT:
     mensagens = [{"role": "user", "content": montar_user_prompt(req.user_story, req.criterios)}]
     ultimo_erro = ""
     for _ in range(MAX_TENTATIVAS):
-        resposta = chamar(req.motor, SYSTEM_PROMPT, mensagens)
+        try:
+            resposta = chamar(req.motor, SYSTEM_PROMPT, mensagens, api_key=req.api_key)
+        except TypeError:
+            resposta = chamar(req.motor, SYSTEM_PROMPT, mensagens)
         try:
             return validar_resposta(resposta, req.criterios)
         except ErroModelo as e:
