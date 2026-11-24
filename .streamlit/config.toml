@@ -1,7 +1,35 @@
+# Temas do design kit QUALITY ASSURANCE CONSULTANT. O app segue o tema do sistema;
+# o usuário troca entre Light, Dark e System no menu ⋮ (canto superior direito).
 [theme]
-base = "light"
-primaryColor = "#4f46e5"
-backgroundColor = "#f8fafc"
-secondaryBackgroundColor = "#ffffff"
-textColor = "#0f172a"
 font = "sans serif"
+
+[theme.light]
+primaryColor = "#111111"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F4F4F4"
+textColor = "#111111"
+borderColor = "#D4D4D4"
+linkColor = "#111111"
+# Avisos informativos (st.info) em neutros do kit, sem o azul padrão; verde e vermelho são as cores de status.
+blueColor = "#111111"
+blueBackgroundColor = "#F4F4F4"
+blueTextColor = "#111111"
+greenColor = "#15803D"
+greenTextColor = "#15803D"
+redColor = "#B42318"
+redTextColor = "#B42318"
+
+[theme.dark]
+primaryColor = "#FFC72C"
+backgroundColor = "#111111"
+secondaryBackgroundColor = "#2B2B2B"
+textColor = "#FFFFFF"
+borderColor = "#4A4A4A"
+linkColor = "#FFFFFF"
+blueColor = "#FFFFFF"
+blueBackgroundColor = "#2B2B2B"
+blueTextColor = "#FFFFFF"
+greenColor = "#4ADE80"
+greenTextColor = "#4ADE80"
+redColor = "#F97066"
+redTextColor = "#F97066"

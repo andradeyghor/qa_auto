@@ -26,7 +26,7 @@ Ver proposal.md (Why). Estado esperado após `fsm-model-v2`:
 
 ### 1. Busca sobre configurações, não sobre o grafo de estados
 
-Uma configuração é (estado, valores das variáveis de estado). Os valores de contexto são escolhidos antes da busca, e os de entrada em cada evento, ambos a partir dos candidatos de fronteira das guardas (mesma rotina da validação de determinismo de `fsm-model-v2`). Uma aresta da busca é uma transição cuja guarda é verdadeira com aqueles valores.
+Uma configuração é (estado, valores das variáveis de estado). Os valores de contexto são escolhidos antes da busca, e os de entrada em cada evento, ambos a partir dos candidatos de fronteira das guardas: os de `candidatos()` em `backend/validacao.py`, a mesma função da validação de determinismo de `fsm-model-v2`, mais as fronteiras entre variáveis da decisão 2. Uma aresta da busca é uma transição cuja guarda é verdadeira com aqueles valores.
 
 - **Todas as transições (padrão):** BFS a partir do inicial até a primeira configuração que dispare cada transição ainda não coberta, seguida do caminho mais curto até um final. As transições são cobertas em ordem de id. Um caminho que cobre várias transições pendentes marca todas.
 - **Caminhos elementares (5W2H):** DFS que não repete configuração. Como contadores mudam a configuração, laços como "PIN inválido" são percorridos o necessário, sem loop infinito.
@@ -35,7 +35,19 @@ Alternativa descartada: DFS sobre o grafo puro e checagem de viabilidade depois,
 
 ### 2. Escolha determinística de valores
 
-Os candidatos são ordenados (numéricos crescentes, `False` antes de `True`, datas crescentes) e tentados sempre na mesma ordem. O primeiro valor que satisfaz a guarda é usado no caminho normal. Os cenários de borda usam o ponto de fronteira e o vizinho fora dela, respeitando as outras guardas do mesmo par estado/evento. No exemplo de múltiplo de 20, o vizinho fora válido é 120, não 101.
+Os candidatos são ordenados (numéricos crescentes, `False` antes de `True`, datas crescentes) e tentados sempre na mesma ordem.
+
+A ordem crescente pura escolhe valores degenerados. No gabarito `saque-atm`, `candidatos()` devolve `[-0.01, 0, 0.01, 1.99, 2, 2.01, 19.99, 20, 20.01]` para `saldo` e para `valor`, e o primeiro par que satisfaz `valor <= saldo e valor % 20 == 0` seria saldo 0 e valor 0. Preferir positivos uma variável por vez também não basta: o saldo sairia 0,01, e com ele o único valor viável é 0. Por isso, nas variáveis numéricas de contexto e de entrada, a busca corre em camadas sobre a combinação de valores do caminho:
+
+1. só candidatos positivos;
+2. positivos e zero;
+3. todos os candidatos.
+
+A camada seguinte só é usada quando a transição não é viável na anterior, e dentro de cada camada vale o primeiro valor, na ordem, que torna a transição viável. No `saque-atm`, o caminho até `SaqueRealizado` usa saldo 20 e valor 20. Uma guarda como `valor <= 0` continua coberta, com valor 0, na segunda camada.
+
+Se uma variável de contexto declara `valor_inicial`, esse valor é tentado antes dos candidatos. O campo já existe no esquema e é opcional para contexto, então nada muda no extrator; um gabarito pode fixar um cenário realista, como saldo 100. Se a transição não for viável com o valor declarado, a busca segue pelas camadas.
+
+Nos cenários de borda, o ponto de fronteira de cada comparação é o literal ou, numa comparação entre variáveis como `valor <= saldo`, o valor já escolhido da outra variável. `candidatos()` não produz esse ponto, porque os valores iniciais não são compartilhados entre variáveis. O valor de fora é o primeiro encontrado a partir da fronteira, no sentido que inverte a comparação, em passos de 1, 0,01 ou 1 dia, em que as demais condições da guarda mantêm o resultado que tinham na fronteira. Com saldo 100 e `valor % 20 == 0`, os cenários usam 100 e 120, não 101. A busca tem limite configurável (padrão 10.000 passos). Sem valor de fora válido, o cenário de borda não é gerado e o relatório de cobertura informa o motivo.
 
 ### 3. Vocabulário fixo de passos em português
 
@@ -90,6 +102,8 @@ Os testes do gerador usam um adaptador que executa o próprio modelo com o inter
 - [Passos genéricos ficam menos legíveis para o PO] → O nome do cenário e os comentários de guarda dão contexto. A versão com frases naturais fica registrada como melhoria futura.
 - [`pytest-bdd` não aceitar palavras-chave em português] → Verificado na tarefa 2.1. Se falhar, mantém-se `# language: pt` só no parser de validação e as palavras-chave em inglês no arquivo executado, registrando o desvio.
 - [Caminhos até um final ficam longos no Saque, cujo único final é `CartaoRetido`] → Aceito: o caminho mais curto até um final é determinístico, e o nome do cenário mostra a sequência.
+- [Valores degenerados no caminho normal, como saque de 0 com saldo 0, porque `candidatos()` sempre inclui o 0 e vizinhos negativos] → Camadas e valor de contexto declarado (decisão 2), com teste no gabarito `saque-atm`.
+- [Mudança na semântica das guardas] → O gerador assume guardas disjuntas no mesmo par estado/evento, como exige a validação atual. Se a semântica passar a "vale a primeira guarda que casar", o que fica fora deste change, o gerador passa a usar a guarda efetiva `g_i e não g_1 … e não g_{i-1}`.
 
 ## Migration Plan
 

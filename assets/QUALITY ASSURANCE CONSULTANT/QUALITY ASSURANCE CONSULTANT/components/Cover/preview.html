@@ -1,0 +1,47 @@
+<!-- @dsCard height=320 -->
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;800&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; }
+  body { background: var(--bg); }
+  .cover { position: relative; width: 960px; height: 320px; background: var(--bg); overflow: hidden; }
+  .cover svg { position: absolute; left: 0; top: 0; }
+  .brand { fill: var(--brand); }
+  .strong { fill: var(--brand-strong); }
+  .ink { fill: var(--text); }
+  .rule { fill: var(--border); }
+  .dot { fill: var(--brand); }
+  .text-block { position: absolute; left: 48px; top: 152px; max-width: 864px; }
+  .name { margin: 0; font-family: var(--font-sans); font-weight: 800; font-size: 56px; line-height: .95; letter-spacing: .02em; color: var(--text); }
+  .tag { margin: 16px 0 0; font-family: var(--font-sans); font-size: 14px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+<div class="cover">
+  <svg width="960" height="112" viewBox="0 0 960 112" aria-hidden="true">
+    <!--
+      blocks: brand 480×112 (half the band, the identity colour), text/ink 240×112, brand-strong 144×112, border 96×112; square corners
+      arrangement: top-band skeleton (name too wide for the 440px zone), one long yellow slab then a dark block and two narrower bands
+      pattern: discs on the ink block — "rubber duck" roundness; the system's one motif is round (duck head, eye), so discs not rules
+      scales: disc pitch 32px (space-8), inset 24px (space-6), r 6px (radius-sm)
+    -->
+    <rect class="brand" x="0" y="0" width="480" height="112"/>
+    <rect class="ink" x="480" y="0" width="240" height="112"/>
+    <rect class="strong" x="720" y="0" width="144" height="112"/>
+    <rect class="rule" x="864" y="0" width="96" height="112"/>
+    <g>
+      <circle class="dot" cx="504" cy="24" r="6"/><circle class="dot" cx="536" cy="24" r="6"/><circle class="dot" cx="568" cy="24" r="6"/><circle class="dot" cx="600" cy="24" r="6"/><circle class="dot" cx="632" cy="24" r="6"/><circle class="dot" cx="664" cy="24" r="6"/><circle class="dot" cx="696" cy="24" r="6"/>
+      <circle class="dot" cx="504" cy="56" r="6"/><circle class="dot" cx="536" cy="56" r="6"/><circle class="dot" cx="568" cy="56" r="6"/><circle class="dot" cx="600" cy="56" r="6"/><circle class="dot" cx="632" cy="56" r="6"/><circle class="dot" cx="664" cy="56" r="6"/><circle class="dot" cx="696" cy="56" r="6"/>
+      <circle class="dot" cx="504" cy="88" r="6"/><circle class="dot" cx="536" cy="88" r="6"/><circle class="dot" cx="568" cy="88" r="6"/><circle class="dot" cx="600" cy="88" r="6"/><circle class="dot" cx="632" cy="88" r="6"/><circle class="dot" cx="664" cy="88" r="6"/><circle class="dot" cx="696" cy="88" r="6"/>
+    </g>
+  </svg>
+  <div class="text-block">
+    <h1 class="name">QUALITY ASSURANCE<br>CONSULTANT</h1>
+    <p class="tag">De requisitos a testes executáveis.</p>
+  </div>
+</div>
+</body>
+</html>

@@ -118,12 +118,16 @@ def test_carregar_exemplo_seleciona_sistema(app):
     assert app.selectbox(key="sistema_alvo").value == "saque"
 
 
-# artefatos
+# artefatos (add-mbt-generator 4.1: modelo, diagrama, feature, teste, adaptador e pacote zip)
+DOWNLOADS = 6
+
+
 def test_demo_gera_artefatos_do_modelo_de_referencia(app):
     gerar(app)
-    assert "Feature: Login bancário" in codigos(app)
+    assert "# language: pt\nFuncionalidade: Login bancário" in codigos(app)
     assert 'scenarios("login.feature")' in codigos(app)
-    assert len(downloads(app)) == 2
+    assert 'criar("login", os.getenv("QA_VARIANTE", "correto"))' in codigos(app)
+    assert len(downloads(app)) == DOWNLOADS
     assert app.session_state["resultado"]["artefatos"].nome_script == "test_login.py"
 
 
@@ -133,8 +137,8 @@ def test_modo_real_com_backend_falso(app, backend_falso):
     modo_real(app)
     gerar(app)
     assert backend_falso["enviado"]["sistema"] == "login"
-    assert "Feature: Login bancário" in codigos(app)
-    assert len(downloads(app)) == 2
+    assert "Funcionalidade: Login bancário" in codigos(app)
+    assert len(downloads(app)) == DOWNLOADS
     assert app.session_state["resultado"]["tentativas"] == 2
     assert any("2 tentativa(s) em 42.0s" in c.value for c in app.caption)
 
@@ -145,8 +149,52 @@ def test_modo_real_sem_sistema_gera_esqueleto(app, backend_falso):
     gerar(app)
     assert backend_falso["enviado"]["sistema"] is None
     assert any("esqueletos" in i.value for i in app.info)
-    assert 'scenarios("cenarios.feature")' in codigos(app)
+    assert 'scenarios("login.feature")' in codigos(app)
+    assert "Implemente o adaptador do sistema sob teste" in codigos(app)
     assert not [b for b in app.button if b.key == "executar"]
+
+
+def test_texto_editado_usa_o_slug_de_texto_livre(app, backend_falso):
+    modo_real(app)
+    app.text_area(key="criterios").set_value(obter("login").criterios + "\n4. Novo critério.").run()
+    gerar(app)
+    assert app.session_state["resultado"]["artefatos"].nome_feature == "requisito.feature"
+    assert "Funcionalidade: Login bancário" in codigos(app)  # título do sistema alvo
+
+
+def test_abas_gherkin_pytest_e_cobertura_no_modo_real(app, backend_falso):
+    cupom = exemplos.carregar("cupom-promocional")["modelo"]
+    backend_falso["resposta"] = resposta_gerar(cupom)
+    app.selectbox(key="exemplo").select("Cupom Promocional").run()
+    modo_real(app)
+    gerar(app)
+    artefatos = app.session_state["resultado"]["artefatos"]
+    assert "Funcionalidade: Cupom Promocional" in codigos(app)
+    assert codigos(app).count("Cenário: Caminho") == len(artefatos.caminhos)
+    assert 'scenarios("cupom-promocional.feature")' in codigos(app)
+    assert any(c.value.startswith("Cobertura: estados 5/5 (100%)") for c in app.caption)
+    caminhos = next(d.value for d in app.dataframe if "Transições" in d.value.columns)
+    assert len(caminhos) == len(artefatos.caminhos)
+    assert set(caminhos["Critérios"]) >= {"1, 3, 4"}
+
+
+# 4.4 estratégia e cenários de borda
+def test_sem_cenarios_de_borda(app):
+    app.selectbox(key="exemplo").select("Cupom Promocional").run()
+    gerar(app)
+    assert "@borda" in codigos(app)
+    app.checkbox(key="bordas").uncheck().run()
+    gerar(app)
+    assert "@borda" not in codigos(app)
+
+
+def test_estrategia_de_caminhos_elementares(app):
+    app.selectbox(key="exemplo").select("Carrinho de Compras").run()
+    gerar(app)
+    por_transicoes = len(app.session_state["resultado"]["artefatos"].caminhos)
+    app.selectbox(key="estrategia").select("elementares").run()
+    gerar(app)
+    assert len(app.session_state["resultado"]["artefatos"].caminhos) > por_transicoes
 
 
 def test_exemplo_usa_pipeline_real_fora_da_demo(app, backend_falso):
@@ -267,9 +315,12 @@ def test_codigo_mermaid_disponivel(app):
 
 
 # 5.1 aviso da demonstração
+ABAS = 7  # grafo, análise, transições, Gherkin, Pytest, cobertura e JSON
+
+
 def test_aviso_demo_em_todas_as_abas(app):
     gerar(app)
-    assert sum(AVISO_DEMO in i.value for i in app.info) == 6
+    assert sum(AVISO_DEMO in i.value for i in app.info) == ABAS
 
 
 def test_modo_real_sem_aviso_demo(app, backend_falso):
@@ -325,9 +376,10 @@ def test_demo_exibe_gabarito_como_esqueleto(app, nome, gabarito):
     gerar(app)
     assert not app.warning
     assert app.session_state["resultado"]["modelo"] == exemplos.carregar(gabarito)["modelo"]
-    assert sum(AVISO_DEMO in i.value for i in app.info) == 6
+    assert sum(AVISO_DEMO in i.value for i in app.info) == ABAS
     assert any("esqueletos" in i.value for i in app.info)
-    assert 'scenarios("cenarios.feature")' in codigos(app)
+    assert f'scenarios("{gabarito}.feature")' in codigos(app)
+    assert len(downloads(app)) == DOWNLOADS
 
 
 # 4.3 análise, variáveis e tentativas
@@ -355,7 +407,7 @@ def test_tentativas_do_modo_real(app, backend_falso):
     modo_real(app)
     gerar(app)
     tentativas = next(d.value for d in app.dataframe if "Tentativa" in d.value.columns)
-    assert list(tentativas["Resultado"]) == ["❌ Inválido", "✅ Válido"]
+    assert list(tentativas["Resultado"]) == ["INVÁLIDO", "VÁLIDO"]
     assert "critério 2 sem transição" in list(tentativas["Erros"])
 
 
@@ -379,7 +431,7 @@ def test_executar_mostra_veredito_e_nova_geracao_descarta(app):
     app.button(key="executar").click().run()
     assert not app.exception
     assert any("Bug detectado" in s.value for s in app.success)
-    assert len(app.dataframe) >= 3  # transições + duas variantes
+    assert len(_tabelas_status(app)) == 2  # sistema correto e sistema com bug
     assert any("Esperado ContaBloqueada, obtido DuasFalhas" in m.value for m in app.markdown)
 
     gerar(app)
@@ -431,3 +483,251 @@ def test_chave_do_gemini_so_para_o_gemini(app):
     assert not [t for t in app.text_input if "Gemini" in (t.label or "")]
     app.selectbox(key="provedor").set_value("gemini").run()
     assert [t for t in app.text_input if "Gemini" in (t.label or "")]
+
+
+# apply-qac-design-system: identidade visual
+import ast
+import json
+
+RAIZ = Path(APP).parent
+KIT = RAIZ / "assets" / "QUALITY ASSURANCE CONSULTANT" / "QUALITY ASSURANCE CONSULTANT"
+MARCA = "QUALITY ASSURANCE CONSULTANT"
+PROIBIDOS = ["QA Autonomous", "🤖", "🔍", "🔎", "🐛", "🐞", "🧠", "✨"]
+CORES_ANTIGAS = ["#4f46e5", "#4338ca", "#0284c7", "#6366f1", "#e0e7ff", "#eef2ff"]
+
+
+def _tokens_do_app() -> dict:
+    arvore = ast.parse(Path(APP).read_text(encoding="utf-8"))
+    for no in arvore.body:
+        if isinstance(no, ast.Assign) and any(getattr(a, "id", None) == "TOKENS" for a in no.targets):
+            return ast.literal_eval(no.value)
+    raise AssertionError("TOKENS não encontrado em app.py")
+
+
+def _texto_renderizado(at) -> str:
+    partes = []
+    for tipo in ("markdown", "caption", "info", "warning", "error", "success", "title", "header", "subheader"):
+        partes += [str(e.value) for e in at.get(tipo)]
+    for tipo in ("button", "download_button", "selectbox", "text_input", "text_area", "toggle", "checkbox"):
+        partes += [str(e.label) for e in at.get(tipo)]
+    partes += [str(e.label) for e in at.tabs] + [str(e.label) for e in at.expander]
+    for d in at.dataframe:
+        partes.append(d.value.to_string())
+    partes.append(codigos(at))
+    return "\n".join(partes)
+
+
+def test_tokens_iguais_ao_kit():
+    kit = json.loads((KIT / "tokens.json").read_text(encoding="utf-8"))
+    claro = {t["name"]: (t["value"]["light"] if isinstance(t["value"], dict) else t["value"]).upper()
+             for t in kit["color"]["tokens"]}
+    tokens = _tokens_do_app()
+    assert {k: v.upper() for k, v in tokens.items()} == {k: claro[k] for k in tokens}
+    assert set(tokens) == set(claro)
+
+
+def test_arquivos_da_marca_copiados_do_kit():
+    for grupo in ("Logos", "Icones"):
+        for original in (KIT / "assets" / grupo).glob("qac-*"):
+            copia = RAIZ / "assets" / original.name
+            assert copia.read_bytes() == original.read_bytes(), original.name
+
+
+def test_tema_do_streamlit_do_kit():
+    import tomllib
+
+    tema = tomllib.loads((RAIZ / ".streamlit" / "config.toml").read_text(encoding="utf-8"))["theme"]
+    claro, escuro = tema["light"], tema["dark"]
+    assert {k: claro[k] for k in ("primaryColor", "backgroundColor", "secondaryBackgroundColor", "textColor",
+                                  "borderColor", "greenTextColor", "redTextColor")} == {
+        "primaryColor": "#111111", "backgroundColor": "#FFFFFF", "secondaryBackgroundColor": "#F4F4F4",
+        "textColor": "#111111", "borderColor": "#D4D4D4", "greenTextColor": "#15803D", "redTextColor": "#B42318"}
+    assert {k: escuro[k] for k in ("primaryColor", "backgroundColor", "secondaryBackgroundColor", "textColor",
+                                   "borderColor", "greenTextColor", "redTextColor")} == {
+        "primaryColor": "#FFC72C", "backgroundColor": "#111111", "secondaryBackgroundColor": "#2B2B2B",
+        "textColor": "#FFFFFF", "borderColor": "#4A4A4A", "greenTextColor": "#4ADE80", "redTextColor": "#F97066"}
+    # cores de tema só nas seções de cada tema
+    assert not {k for k in tema if k not in ("light", "dark", "font")}
+
+
+def test_sem_cores_antigas_nem_degrade():
+    fonte = Path(APP).read_text(encoding="utf-8").lower()
+    assert not [c for c in CORES_ANTIGAS if c in fonte]
+    assert "gradient" not in fonte
+
+
+def test_nome_da_marca_no_cabecalho(app):
+    html = " ".join(m.value for m in app.markdown)
+    assert MARCA in html and "De requisitos a testes executáveis." in html
+
+
+def test_logo_e_icone_do_kit(monkeypatch):
+    import streamlit
+
+    chamadas = []
+    monkeypatch.setattr(streamlit, "logo", lambda imagem, **kw: chamadas.append((imagem, kw)))
+    at = AppTest.from_file(APP, default_timeout=60)
+    at.run()
+    assert not at.exception
+    (imagem, kw), = chamadas
+    assert Path(imagem) == RAIZ / "assets" / "qac-logo-horizontal-claro.svg" and Path(imagem).exists()
+    assert Path(kw["icon_image"]) == RAIZ / "assets" / "qac-icone-escuro.svg"
+
+
+def test_titulo_da_pagina_e_icone():
+    fonte = Path(APP).read_text(encoding="utf-8")
+    assert "page_title=MARCA" in fonte and 'MARCA = "QUALITY ASSURANCE CONSULTANT"' in fonte
+    assert "page_icon=str(FAVICON)" in fonte and '"qac-favicon-32.png"' in fonte
+
+
+def test_sem_marca_provisoria_nem_icones_proibidos(app):
+    telas = [_texto_renderizado(app)]
+    gerar(app)
+    telas.append(_texto_renderizado(app))
+    app.button(key="executar").click().run()
+    telas.append(_texto_renderizado(app))
+    for tela in telas:
+        assert not [p for p in PROIBIDOS if p in tela]
+
+
+def test_hierarquia_e_rotulos_dos_botoes(app):
+    assert app.button(key="gerar").label == "Gerar testes"
+    assert app.button(key="gerar").proto.type == "primary"
+    gerar(app)
+    assert app.button(key="executar").label == "Executar testes"
+    assert app.button(key="executar").proto.type == "primary"
+    rotulos = [d.proto.label for d in downloads(app)]
+    assert any(r.startswith("Baixar pacote (") for r in rotulos)
+    assert all(d.proto.type != "primary" for d in downloads(app))
+
+
+def test_abas_com_icones_material(app):
+    gerar(app)
+    rotulos = [t.label for t in app.tabs]
+    assert len(rotulos) == ABAS and all(r.startswith(":material/") for r in rotulos)
+
+
+def test_status_aprovado_e_falhou(app):
+    app.selectbox(key="exemplo").select(SAQUE).run()
+    gerar(app)
+    app.button(key="executar").click().run()
+    correto, bug = _tabelas_status(app)
+    assert {r for r, _ in correto} == {"APROVADO"}
+    assert "FALHOU" in {r for r, _ in bug}
+    falhas = [r for r, _ in bug].count("FALHOU")
+    veredito = textos(app.success)
+    assert f"Bug detectado em {falhas} teste" in veredito
+
+
+# add-dark-theme
+import re as _re
+
+CLASSE_STATUS = {"ok": "APROVADO", "falha": "FALHOU"}
+
+
+def _tabelas_status(at) -> list[list[tuple[str, str]]]:
+    """Linhas (resultado, cenário) de cada tabela HTML de status; confere que a classe bate com a palavra."""
+    tabelas = []
+    for m in at.markdown:
+        if 'class="qac-status"' not in m.value:
+            continue
+        linhas = _re.findall(r'<tr><td class="(ok|falha)">(APROVADO|FALHOU)</td><td>(.*?)</td></tr>', m.value)
+        assert all(CLASSE_STATUS[c] == r for c, r, _ in linhas)
+        tabelas.append([(r, nome) for _, r, nome in linhas])
+    return tabelas
+
+
+def _bloco(nome: str):
+    """Valor literal de uma atribuição de nível de módulo em app.py, sem executar o app."""
+    arvore = ast.parse(Path(APP).read_text(encoding="utf-8"))
+    for no in arvore.body:
+        if isinstance(no, ast.Assign) and any(getattr(a, "id", None) == nome for a in no.targets):
+            return no
+    raise AssertionError(f"{nome} não encontrado em app.py")
+
+
+def _css(at) -> str:
+    return next(m.value for m in at.markdown if m.value.lstrip().startswith("<style>"))
+
+
+def _kit_escuro() -> dict:
+    kit = json.loads((KIT / "tokens.json").read_text(encoding="utf-8"))
+    return {t["name"]: (t["value"]["dark"] if isinstance(t["value"], dict) else t["value"]).upper()
+            for t in kit["color"]["tokens"]}
+
+
+def _tokens_escuros_do_app() -> dict:
+    no = _bloco("TOKENS_ESCURO").value  # {**TOKENS, ...}
+    tokens = dict(_tokens_do_app())
+    for chave, valor in zip(no.keys, no.values):
+        if chave is not None:
+            tokens[ast.literal_eval(chave)] = ast.literal_eval(valor)
+    return tokens
+
+
+def test_tokens_escuros_iguais_ao_kit():
+    tokens = {k: v.upper() for k, v in _tokens_escuros_do_app().items()}
+    assert tokens == _kit_escuro()
+
+
+def test_css_com_os_dois_temas(app):
+    css = _css(app)
+    claro = css.split(":root {", 1)[1].split("}", 1)[0]
+    escuro = css.split(':root[data-qac-tema="escuro"] {', 1)[1].split("}", 1)[0]
+    for nome, valor in _tokens_do_app().items():
+        assert f"--qac-{nome}: {valor};" in claro
+    for nome, valor in _tokens_escuros_do_app().items():
+        assert f"--qac-{nome}: {valor};" in escuro
+    # fora das declarações de variável, nenhuma cor fixa
+    regras = "\n".join(l for l in css.splitlines() if not l.strip().startswith("--qac-"))
+    assert not _re.findall(r"#[0-9a-fA-F]{3,8}\b", regras)
+
+
+def test_script_de_tema_na_pagina(app):
+    scripts = [h.proto.body for h in app.get("html") if "__qacTema" in h.proto.body]
+    assert len(scripts) == 1
+    assert "prefers-color-scheme: dark" in scripts[0] and "MutationObserver" in scripts[0]
+
+
+def test_logos_e_pato_nos_dois_temas(app):
+    html = " ".join(m.value for m in app.sidebar.markdown)
+    for arquivo in ("qac-logo-horizontal-claro.svg", "qac-logo-horizontal-escuro.svg"):
+        assert (RAIZ / "assets" / arquivo).read_text(encoding="utf-8") in html
+    assert 'class="qac-logo qac-so-claro"' in html and 'class="qac-logo qac-so-escuro"' in html
+    vazio = next(m.value for m in app.main.markdown if 'class="empty"' in m.value)
+    assert 'class="qac-so-claro"' in vazio and 'class="qac-so-escuro"' in vazio
+
+
+def test_tabela_de_status_escapa_nomes():
+    from types import SimpleNamespace
+
+    import html as html_mod
+
+    fonte = Path(APP).read_text(encoding="utf-8")
+    funcao = next(n for n in ast.parse(fonte).body if isinstance(n, ast.FunctionDef) and n.name == "tabela_cenarios")
+    escopo = {"html": html_mod, "APROVADO": "APROVADO", "FALHOU": "FALHOU", "ResultadoVariante": object}
+    exec(compile(ast.Module([funcao], []), APP, "exec"), escopo)
+    resultado = SimpleNamespace(cenarios=[SimpleNamespace(nome="saldo < 0 <b>", passou=False)])
+    tabela = escopo["tabela_cenarios"](resultado)
+    assert "saldo &lt; 0 &lt;b&gt;" in tabela and "<b>" not in tabela
+    assert '<td class="falha">FALHOU</td>' in tabela
+
+
+def test_mermaid_com_as_duas_paletas(monkeypatch):
+    import streamlit
+
+    capturado = []
+    original = streamlit.iframe
+    monkeypatch.setattr(streamlit, "iframe", lambda src, **kw: capturado.append(src) or original(src, **kw))
+    at = AppTest.from_file(APP, default_timeout=60)
+    at.run()
+    gerar(at)
+    pagina = next(p for p in capturado if "mermaid" in p)
+    for tokens in (_tokens_do_app(), _tokens_escuros_do_app()):
+        for chave in ("bg", "surface", "text", "text-secondary"):
+            assert tokens[chave] in pagina
+    assert not [c for c in CORES_ANTIGAS if c in pagina.lower()]
+
+
+def test_legenda_do_tema(app):
+    assert any(c.value.endswith("Tema claro ou escuro: menu ⋮ no canto superior direito.") for c in app.sidebar.caption)

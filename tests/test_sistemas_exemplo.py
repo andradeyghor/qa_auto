@@ -54,6 +54,57 @@ def test_evento_nao_aplicavel_mantem_estado():
     assert percorrer(sistema, "retirar_notas") == "AguardandoCartao"
 
 
+# interface do adaptador: contexto, dados no evento e aceitação (add-mbt-generator 3.1)
+def test_evento_aplicavel_e_aceito():
+    sistema = criar("login")
+    assert sistema.disparar("senha_incorreta") is True
+    assert sistema.estado_atual == "UmaFalha"
+    assert criar("saque").disparar("inserir_cartao", {}) is True
+
+
+def test_evento_nao_aplicavel_e_recusado_sem_erro():
+    sistema = criar("saque")
+    assert sistema.disparar("retirar_notas", {}) is False
+    assert sistema.estado_atual == "AguardandoCartao"
+    bloqueado = criar("login")
+    percorrer(bloqueado, *["senha_incorreta"] * 3)
+    assert bloqueado.disparar("senha_correta") is False
+    assert bloqueado.estado_atual == "ContaBloqueada"
+
+
+def test_saque_sem_saldo_e_recusado():
+    sistema = criar("saque")
+    percorrer(sistema, "inserir_cartao", "pin_correto")
+    assert sistema.disparar("sacar_sem_saldo") is False
+    assert sistema.estado_atual == "MenuPrincipal"
+
+
+def test_laco_aceito_nao_muda_o_estado():
+    """O retorno diz se a regra aceitou o evento, e não se o estado mudou."""
+    sistema = criar("login", "bug")
+    percorrer(sistema, "senha_incorreta", "senha_incorreta")
+    assert sistema.disparar("senha_incorreta") is True
+    assert sistema.estado_atual == "DuasFalhas"
+
+
+def test_evento_fora_do_catalogo_com_dados():
+    with pytest.raises(ErroSistema, match="teletransportar"):
+        criar("saque").disparar("teletransportar", {"valor": 1})
+
+
+@pytest.mark.parametrize("sistema_id", SISTEMAS)
+def test_contexto_desconhecido(sistema_id):
+    with pytest.raises(ErroSistema, match="saldo"):
+        criar(sistema_id).definir_contexto("saldo", 100)
+
+
+@pytest.mark.parametrize("sistema_id", SISTEMAS)
+@pytest.mark.parametrize("variante", ["correto", "bug"])
+def test_estado_atual(sistema_id, variante):
+    sistema = criar(sistema_id, variante)
+    assert sistema.estado_atual == sistema.estado == obter(sistema_id).catalogo.inicial
+
+
 # login
 def test_login_tres_erros_bloqueiam_so_na_variante_correta():
     erros = ["senha_incorreta"] * 3

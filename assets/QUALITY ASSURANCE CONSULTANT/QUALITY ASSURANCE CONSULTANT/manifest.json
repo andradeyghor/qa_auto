@@ -1,0 +1,122 @@
+{
+  "manifestVersion": 3,
+  "name": "QUALITY ASSURANCE CONSULTANT",
+  "namespace": "QAC",
+  "files": [
+    "assets/Icones/README.md",
+    "assets/Logos/README.md",
+    "tokens.css"
+  ],
+  "libraries": [],
+  "components": [],
+  "assetGroups": [
+    {
+      "name": "Logos",
+      "tile": "l",
+      "order": [
+        "qac-logo-horizontal-claro.svg",
+        "qac-logo-horizontal-escuro.svg",
+        "qac-simbolo-claro.svg",
+        "qac-simbolo-escuro.svg"
+      ],
+      "files": [
+        {
+          "path": "assets/Logos/qac-logo-horizontal-claro.svg",
+          "id": "9c059372e18890180492dc73726fad75"
+        },
+        {
+          "path": "assets/Logos/qac-logo-horizontal-escuro.svg",
+          "id": "7d9ba9173f05513ed359d8b252b8a730"
+        },
+        {
+          "path": "assets/Logos/qac-simbolo-claro.svg",
+          "id": "b4e69308214064e424e9dc60e73d7467"
+        },
+        {
+          "path": "assets/Logos/qac-simbolo-escuro.svg",
+          "id": "65e8531b7abc6c373da81644a229060d"
+        }
+      ]
+    },
+    {
+      "name": "Icones",
+      "order": [
+        "qac-icone-escuro.svg",
+        "qac-icone-claro.svg",
+        "qac-icone-512.png",
+        "qac-favicon-32.png"
+      ],
+      "files": [
+        {
+          "path": "assets/Icones/qac-icone-escuro.svg",
+          "id": "e353be6f816ead1cccdb1a30bc25a6b5"
+        },
+        {
+          "path": "assets/Icones/qac-icone-claro.svg",
+          "id": "4648b5b5953103e7884e1e897d4fea4e"
+        },
+        {
+          "path": "assets/Icones/qac-icone-512.png",
+          "id": "c204f1d6284f611f3e5b7c587240c1fd"
+        },
+        {
+          "path": "assets/Icones/qac-favicon-32.png",
+          "id": "af5d9575599b62935ffb65f17f15373b"
+        }
+      ]
+    }
+  ],
+  "storage": {
+    "files": {
+      "assets/Icones/qac-favicon-32.png": {
+        "store": "blob",
+        "id": "af5d9575599b62935ffb65f17f15373b",
+        "bytes": 1119,
+        "type": "image/png"
+      },
+      "assets/Icones/qac-icone-512.png": {
+        "store": "blob",
+        "id": "c204f1d6284f611f3e5b7c587240c1fd",
+        "bytes": 19811,
+        "type": "image/png"
+      },
+      "assets/Icones/qac-icone-claro.svg": {
+        "store": "blob",
+        "id": "4648b5b5953103e7884e1e897d4fea4e",
+        "bytes": 672,
+        "type": "image/svg+xml"
+      },
+      "assets/Icones/qac-icone-escuro.svg": {
+        "store": "blob",
+        "id": "e353be6f816ead1cccdb1a30bc25a6b5",
+        "bytes": 672,
+        "type": "image/svg+xml"
+      },
+      "assets/Logos/qac-logo-horizontal-claro.svg": {
+        "store": "blob",
+        "id": "9c059372e18890180492dc73726fad75",
+        "bytes": 1202,
+        "type": "image/svg+xml"
+      },
+      "assets/Logos/qac-logo-horizontal-escuro.svg": {
+        "store": "blob",
+        "id": "7d9ba9173f05513ed359d8b252b8a730",
+        "bytes": 1255,
+        "type": "image/svg+xml"
+      },
+      "assets/Logos/qac-simbolo-claro.svg": {
+        "store": "blob",
+        "id": "b4e69308214064e424e9dc60e73d7467",
+        "bytes": 859,
+        "type": "image/svg+xml"
+      },
+      "assets/Logos/qac-simbolo-escuro.svg": {
+        "store": "blob",
+        "id": "65e8531b7abc6c373da81644a229060d",
+        "bytes": 859,
+        "type": "image/svg+xml"
+      }
+    },
+    "blobBytesUsed": 26449
+  }
+}

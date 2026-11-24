@@ -30,7 +30,7 @@ async def ciclo_de_vida(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="QA Autonomous API", lifespan=ciclo_de_vida)
+app = FastAPI(title="QUALITY ASSURANCE CONSULTANT API", lifespan=ciclo_de_vida)
 
 
 class TentativaResposta(BaseModel):

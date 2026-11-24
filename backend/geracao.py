@@ -1,74 +1,105 @@
-"""Geração determinística de artefatos a partir do modelo, sem uso do LLM."""
+"""Geração determinística dos artefatos a partir do modelo, sem uso do LLM.
+
+Caminhos viáveis (`caminhos`), cobertura (`cobertura`), Gherkin em português (`compilador_gherkin`) e o pacote
+executável com teste, adaptador e conftest (`gerador_pytest`). Este módulo junta tudo em `Artefatos`.
+"""
+import io
+import json
 import re
-from collections import deque
-from dataclasses import dataclass
+import unicodedata
+import zipfile
+from dataclasses import dataclass, replace
 
 from sistemas_exemplo import obter
 
-from . import expressoes
+from . import gerador_pytest
+from .caminhos import TRANSICOES, Caminho, Limites, gerar_caminhos
+from .cobertura import Cobertura, calcular
+from .compilador_gherkin import gerar_feature, guarda_legivel
+from .gerador_pytest import ESQUELETO, SIMULACAO, SISTEMA
 from .schemas import estado_inicial, estados_finais, rotulos
 
-SCRIPT = '''"""Testes gerados pelo QA Autonomous a partir de __FEATURE__.
-
-Salve os dois arquivos em uma mesma pasta dentro do projeto e rode, na raiz:
-    python -m pytest <pasta>
-__USO__
-"""
-import os
-
-import pytest
-from pytest_bdd import given, parsers, scenarios, then, when
-__IMPORT_SISTEMA__
-scenarios("__FEATURE__")
-
-
-__FIXTURE__
-
-
-@given(parsers.parse('que o sistema está no estado "{estado}"'))
-def estado_inicial(sut, estado):
-    assert sut.estado == estado, f"Esperado {estado}, obtido {sut.estado}"
-
-
-@when(parsers.parse('ocorre o evento "{evento}"'))
-def ocorre_evento(sut, evento):
-    sut.disparar(evento)
-
-
-@then(parsers.parse('o estado deve ser "{estado}"'))
-def confere_estado(sut, estado):
-    assert sut.estado == estado, f"Esperado {estado}, obtido {sut.estado}"
-'''
-
-FIXTURE_SISTEMA = '''@pytest.fixture
-def sut():
-    return criar("__SISTEMA__", os.getenv("QA_VARIANTE", "correto"))'''
-
-FIXTURE_ESQUELETO = '''@pytest.fixture
-def sut():
-    pytest.fail("Sistema não conectado: implemente a fixture sut com estado e disparar(evento).")'''
+SLUG_LIVRE = "requisito"
+TITULO_LIVRE = "Modelo gerado"
+DATA_ZIP = (1980, 1, 1, 0, 0, 0)  # data fixa nas entradas do zip, para o pacote ser idêntico a cada geração
 
 
 @dataclass(frozen=True)
 class Artefatos:
-    nome_feature: str
+    slug: str
+    titulo: str
     feature: str
-    nome_script: str
     script: str
+    adaptador: str
+    conftest: str
+    leiame: str
+    modelo_json: str
+    diagrama: str
+    cobertura: Cobertura
+    caminhos: tuple[Caminho, ...] = ()
+
+    @property
+    def modulo(self) -> str:
+        return self.slug.replace("-", "_")
+
+    @property
+    def nome_feature(self) -> str:
+        return f"{self.slug}.feature"
+
+    @property
+    def nome_script(self) -> str:
+        return f"test_{self.modulo}.py"
+
+    @property
+    def nome_adaptador(self) -> str:
+        return f"adaptador_{self.modulo}.py"
+
+    @property
+    def nome_modelo(self) -> str:
+        return f"{self.slug}.json"
+
+    @property
+    def nome_diagrama(self) -> str:
+        return f"{self.slug}.mmd"
+
+    @property
+    def nome_zip(self) -> str:
+        return f"{self.slug}.zip"
+
+    def arquivos(self) -> dict[str, str]:
+        """Conteúdo do pacote, por nome de arquivo."""
+        return {
+            self.nome_feature: self.feature,
+            self.nome_script: self.script,
+            self.nome_adaptador: self.adaptador,
+            "conftest.py": self.conftest,
+            "LEIAME.md": self.leiame,
+            self.nome_modelo: self.modelo_json,
+            self.nome_diagrama: self.diagrama,
+            "cobertura.md": self.cobertura.em_markdown(),
+        }
+
+    def zip(self) -> bytes:
+        """Pacote zip com uma pasta `<slug>/`, pronto para descompactar na raiz do projeto."""
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as arquivo_zip:
+            for nome, conteudo in self.arquivos().items():
+                info = zipfile.ZipInfo(f"{self.slug}/{nome}", date_time=DATA_ZIP)
+                info.compress_type = zipfile.ZIP_DEFLATED
+                arquivo_zip.writestr(info, conteudo.encode("utf-8"))
+        return buffer.getvalue()
+
+
+def normalizar_slug(texto: str | None) -> str:
+    """Id em minúsculas ASCII com hífens (ex.: 'Cupom Promocional' -> 'cupom-promocional')."""
+    sem_acento = "".join(c for c in unicodedata.normalize("NFD", texto or "") if unicodedata.category(c) != "Mn")
+    return re.sub(r"[^a-z0-9]+", "-", sem_acento.lower()).strip("-") or SLUG_LIVRE
 
 
 def _rotulo_mermaid(texto: str) -> str:
     """Remove do rótulo os caracteres que mudam a sintaxe do Mermaid (`:`, `;`, `"`, `#`, chaves, quebras)."""
     texto = re.sub(r'[:;"#{}]', " ", texto)
     return re.sub(r"\s+", " ", texto).strip() or "evento"
-
-
-def _guarda_legivel(guarda: str) -> str:
-    """Guarda em forma canônica (operadores com espaços, para o `<` nunca parecer uma tag HTML)."""
-    try:
-        return expressoes.formatar(guarda)
-    except expressoes.ErroExpressao:
-        return re.sub(r"\s*([<>!=]=|[<>])\s*", r" \1 ", guarda)
 
 
 def modelo_para_mermaid(modelo: dict) -> str:
@@ -80,7 +111,7 @@ def modelo_para_mermaid(modelo: dict) -> str:
     for t in modelo["transicoes"]:
         rotulo = _rotulo_mermaid(t["evento"])
         if t.get("guarda"):
-            rotulo += f" [{_rotulo_mermaid(_guarda_legivel(t['guarda']))}]"
+            rotulo += f" [{_rotulo_mermaid(guarda_legivel(t['guarda']))}]"
         if t.get("criterios"):
             rotulo += " (" + ", ".join(f"CA{n}" for n in t["criterios"]) + ")"
         linhas.append(f"    {t['de']} --> {t['para']} : {rotulo}")
@@ -88,84 +119,55 @@ def modelo_para_mermaid(modelo: dict) -> str:
     return "\n".join(linhas)
 
 
-def _caminho_ate(modelo: dict, destino: str) -> list[int]:
-    """Índices das transições do caminho mais curto do estado inicial até o destino (BFS)."""
-    inicial = estado_inicial(modelo)
-    anteriores: dict[str, list[int]] = {inicial: []}
-    fila = deque([inicial])
-    while fila and destino not in anteriores:
-        atual = fila.popleft()
-        for indice, t in enumerate(modelo["transicoes"]):
-            if t["de"] == atual and t["para"] not in anteriores:
-                anteriores[t["para"]] = anteriores[atual] + [indice]
-                fila.append(t["para"])
-    if destino not in anteriores:
-        raise ValueError(f"Estado inalcançável a partir do inicial: {destino}")
-    return anteriores[destino]
+def gerar_artefatos(
+    modelo: dict,
+    sistema_id: str | None = None,
+    *,
+    slug: str | None = None,
+    titulo: str | None = None,
+    estrategia: str = TRANSICOES,
+    bordas: bool = True,
+    limites: Limites | None = None,
+    adaptador: str | None = None,
+) -> Artefatos:
+    """Caminhos, Gherkin, teste, adaptador e conftest do modelo, de forma determinística.
 
+    Com `sistema_id`, o adaptador usa o sistema exemplo; sem ele, é um esqueleto. `adaptador="simulacao"`
+    troca o adaptador pela simulação do próprio modelo, usada para testar o gerador.
+    """
+    definicao = obter(sistema_id) if sistema_id else None
+    slug = normalizar_slug(slug or sistema_id or SLUG_LIVRE)
+    titulo = titulo or (definicao.nome if definicao else TITULO_LIVRE)
+    modo = adaptador or (SISTEMA if sistema_id else ESQUELETO)
+    if modo not in (SISTEMA, ESQUELETO, SIMULACAO) or (modo == SISTEMA and not sistema_id):
+        raise ValueError(f"Adaptador inválido: {modo}")
 
-def gerar_caminhos(modelo: dict) -> list[list[dict]]:
-    """Caminhos a partir do inicial que, juntos, percorrem todas as transições."""
-    transicoes = modelo["transicoes"]
-    cobertas: set[int] = set()
-    caminhos = []
-    for indice, transicao in enumerate(transicoes):
-        if indice in cobertas:
-            continue
-        caminho = _caminho_ate(modelo, transicao["de"]) + [indice]
-        cobertas.update(caminho)
-        caminhos.append([transicoes[i] for i in caminho])
-    return caminhos
-
-
-def _limpar(texto: str) -> str:
-    """Impede que texto do modelo altere a estrutura do Gherkin."""
-    return re.sub(r"\s+", " ", texto).replace('"', "'").strip()
-
-
-def _titulo_cenario(numero: int, caminho: list[dict]) -> str:
-    criterios = sorted({n for t in caminho for n in t.get("criterios", [])})
-    if not criterios:
-        return f"Caminho {numero} - auxiliar"
-    return f"Caminho {numero} - critérios {', '.join(map(str, criterios))}"
-
-
-def gerar_feature(modelo: dict, caminhos: list[list[dict]], titulo: str) -> str:
-    linhas = [f"Feature: {_limpar(titulo)}"]
-    for numero, caminho in enumerate(caminhos, start=1):
-        linhas += ["", f"  Scenario: {_titulo_cenario(numero, caminho)}"]
-        linhas.append(f'    Given que o sistema está no estado "{_limpar(estado_inicial(modelo))}"')
-        for t in caminho:
-            linhas.append(f'    When ocorre o evento "{_limpar(t["evento"])}"')
-            linhas.append(f'    Then o estado deve ser "{_limpar(t["para"])}"')
-    return "\n".join(linhas) + "\n"
-
-
-def gerar_script(nome_feature: str, sistema_id: str | None = None) -> str:
-    if sistema_id:
-        obter(sistema_id)
-        import_sistema = "\nfrom sistemas_exemplo import criar\n"
-        fixture = FIXTURE_SISTEMA.replace("__SISTEMA__", sistema_id)
-        uso = "Para rodar contra a variante com bug, defina QA_VARIANTE=bug."
-    else:
-        import_sistema = ""
-        fixture = FIXTURE_ESQUELETO
-        uso = "Este é um esqueleto: os testes falham até o sistema ser conectado."
-    return (
-        SCRIPT.replace("__FEATURE__", nome_feature)
-        .replace("__USO__", uso)
-        .replace("__IMPORT_SISTEMA__", import_sistema)
-        .replace("__FIXTURE__", fixture)
+    resultado = gerar_caminhos(modelo, estrategia, bordas, limites)
+    # Os nomes dos arquivos saem do slug; o código do pacote é preenchido em seguida
+    base = Artefatos(
+        slug=slug,
+        titulo=titulo,
+        feature=gerar_feature(modelo, resultado.caminhos, titulo),
+        script="",
+        adaptador="",
+        conftest="",
+        leiame="",
+        modelo_json=json.dumps(modelo, ensure_ascii=False, indent=2) + "\n",
+        diagrama=modelo_para_mermaid(modelo) + "\n",
+        cobertura=calcular(modelo, resultado),
+        caminhos=resultado.caminhos,
     )
-
-
-def gerar_artefatos(modelo: dict, sistema_id: str | None = None) -> Artefatos:
-    base = sistema_id or "cenarios"
-    titulo = obter(sistema_id).nome if sistema_id else "Modelo gerado"
-    nome_feature = f"{base}.feature"
-    return Artefatos(
-        nome_feature=nome_feature,
-        feature=gerar_feature(modelo, gerar_caminhos(modelo), titulo),
-        nome_script=f"test_{base}.py",
-        script=gerar_script(nome_feature, sistema_id),
+    nomes = {
+        "__FEATURE__": base.nome_feature,
+        "__SCRIPT__": base.nome_script,
+        "__ADAPTADOR__": base.nome_adaptador,
+        "__MODELO__": base.nome_modelo,
+        "__DIAGRAMA__": base.nome_diagrama,
+    }
+    return replace(
+        base,
+        script=gerador_pytest.gerar_script(base.nome_feature, modo),
+        adaptador=gerador_pytest.gerar_adaptador(modo, sistema_id, base.nome_modelo),
+        conftest=gerador_pytest.gerar_conftest(base.nome_adaptador.removesuffix(".py")),
+        leiame=gerador_pytest.gerar_leiame(titulo, nomes, modo, sistema_id),
     )

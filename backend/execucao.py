@@ -98,10 +98,11 @@ def calcular_veredito(correto: ResultadoVariante, bug: ResultadoVariante) -> str
 
 
 def executar_testes(artefatos: Artefatos, timeout: float = TIMEOUT_EXECUCAO_SEGUNDOS) -> Execucao:
+    """Grava o pacote completo (feature, teste, adaptador e conftest) e roda as duas variantes."""
     with tempfile.TemporaryDirectory(prefix="qa_auto_", ignore_cleanup_errors=True) as temporaria:
         pasta = Path(temporaria)
-        (pasta / artefatos.nome_feature).write_text(artefatos.feature, encoding="utf-8")
-        (pasta / artefatos.nome_script).write_text(artefatos.script, encoding="utf-8")
+        for nome, conteudo in artefatos.arquivos().items():
+            (pasta / nome).write_text(conteudo, encoding="utf-8")
         correto = _executar_variante(pasta, "correto", timeout)
         bug = _executar_variante(pasta, "bug", timeout)
     return Execucao(calcular_veredito(correto, bug), correto, bug)

@@ -1,0 +1,105 @@
+/* QUALITY ASSURANCE CONSULTANT — generated from tokens.json */
+:root, [data-theme="light"] {
+  --bg: #ffffff; /* Fundo da página (Streamlit backgroundColor). */
+  --surface: #f4f4f4; /* Sidebar, cards, caixas de código e inputs (Streamlit secondaryBackgroundColor). */
+  --border: #d4d4d4; /* Bordas de cards, tabelas e divisores. */
+  --text: #111111; /* Texto principal sobre bg e surface (Streamlit textColor). */
+  --text-secondary: #4a4a4a; /* Subtítulos e a palavra CONSULTANT do logo. */
+  --text-muted: #6b6b6b; /* Legendas, tagline, textos de ajuda. Passa 4,5:1 sobre bg e surface. */
+  --brand: #ffc72c; /* Amarelo Pato: cor de marca. Fundo de botão primário, destaques, barra de progresso. Nunca como cor de texto sobre fundo claro (contraste 1,6:1). */
+  --brand-strong: #d9a400; /* Amarelo Bico: hover do botão primário, bico e asa do pato, detalhes. */
+  --on-brand: #111111; /* Texto e ícones sobre brand e brand-strong. */
+  --accent-ink: #111111; /* Cor de controles (Streamlit primaryColor): sliders, checkboxes, foco, abas ativas. */
+  --status-success: #15803d; /* Só para estado de UI: teste aprovado, veredito OK. Não é cor de marca. */
+  --status-error: #b42318; /* Só para estado de UI: teste falhou, bug detectado. Nunca na marca nem em decoração. */
+}
+[data-theme="dark"] {
+  --bg: #111111;
+  --surface: #2b2b2b;
+  --border: #4a4a4a;
+  --text: #ffffff;
+  --text-secondary: #d4d4d4;
+  --text-muted: #bdbdbd;
+  --accent-ink: #ffffff;
+  --status-success: #4ade80;
+  --status-error: #f97066;
+}
+:root {
+  --space-1: 4px; /* Entre ícone e texto. */
+  --space-2: 8px; /* Entre itens de um grupo pequeno, padding de badge. */
+  --space-3: 12px; /* Padding vertical de botão e input. */
+  --space-4: 16px; /* Padding de card, gap entre campos. */
+  --space-6: 24px; /* Entre blocos dentro de uma seção. */
+  --space-8: 32px; /* Entre seções da página. */
+  --space-12: 48px; /* Topo da página e área de proteção do logo. */
+  --radius-sm: 6px; /* Badges, inputs pequenos, blocos de código. */
+  --radius-md: 10px; /* Botões, inputs, cards. */
+  --radius-lg: 16px; /* Painéis grandes e modais. */
+  --radius-icon: 22%; /* Cantos do ícone do app (112px em 512px). */
+  --font-sans: Inter, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --text-display: 800 40px/44px var(--font-sans); /* Nome da marca em caixa alta, capas e telas de abertura. */
+  --text-h1: 700 32px/40px var(--font-sans); /* Título da página no app. */
+  --text-h2: 700 24px/32px var(--font-sans); /* Títulos de seção (etapas do fluxo). */
+  --text-h3: 600 18px/26px var(--font-sans); /* Títulos de card e de painel. */
+  --text-body: 400 16px/24px var(--font-sans); /* Texto corrido e User Stories. */
+  --text-small: 400 14px/20px var(--font-sans); /* Legendas, ajuda e tagline. */
+  --text-label: 600 12px/16px var(--font-sans); /* Rótulos em caixa alta: status, badges, cabeçalhos de tabela. */
+  --text-code: 400 14px/20px var(--font-mono); /* Gherkin, Pytest e JSON do modelo de estados. */
+}
+.display {
+  font-family: var(--font-sans);
+  font-size: 40px;
+  line-height: 44px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.h1 {
+  font-family: var(--font-sans);
+  font-size: 32px;
+  line-height: 40px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.h2 {
+  font-family: var(--font-sans);
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.h3 {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.body {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.small {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+.code {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+  letter-spacing: 0;
+}

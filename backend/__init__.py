@@ -1,1 +1,1 @@
-"""Backend do QA Autonomous."""
+"""Backend do QUALITY ASSURANCE CONSULTANT."""

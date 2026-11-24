@@ -38,18 +38,20 @@ class Login(SistemaExemplo):
     def _deve_bloquear(self) -> bool:
         return self.falhas >= LIMITE_FALHAS
 
-    def autenticar(self, senha_correta: bool) -> None:
+    def autenticar(self, senha_correta: bool) -> bool:
+        """Devolve False quando a conta já está bloqueada ou o cliente já entrou."""
         if self.bloqueada or self.autenticado:
-            return
+            return False
         if senha_correta:
             self.autenticado = True
             self.falhas = 0
-            return
+            return True
         self.falhas += 1
         self.bloqueada = self._deve_bloquear()
+        return True
 
-    def _aplicar(self, evento: str) -> None:
-        self.autenticar(evento == "senha_correta")
+    def _aplicar(self, evento: str, dados: dict) -> bool:
+        return self.autenticar(evento == "senha_correta")
 
 
 class LoginComBug(Login):

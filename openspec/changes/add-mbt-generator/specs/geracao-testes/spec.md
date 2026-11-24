@@ -74,16 +74,35 @@ Na estratégia de caminhos elementares, a geração MUST listar por busca em pro
 - **WHEN** existem mais caminhos que o limite de 200
 - **THEN** são devolvidos 200 caminhos e o relatório avisa que o limite foi atingido
 
+### Requirement: Escolha de valores do caminho
+Para variáveis numéricas de contexto e de entrada, a geração MUST tentar primeiro combinações só com valores positivos, depois com zero e por último com negativos, passando à camada seguinte apenas quando a transição não é viável na anterior. Um valor declarado para uma variável de contexto MUST ser tentado antes dos demais candidatos.
+
+#### Scenario: Valores positivos no caminho normal
+- **WHEN** caminhos são gerados do gabarito `saque-atm`, sem valor declarado para `saldo`
+- **THEN** o caminho até `SaqueRealizado` usa saldo 20 e valor 20
+
+#### Scenario: Valor de contexto declarado
+- **WHEN** a variável de contexto `saldo` do gabarito `saque-atm` declara o valor 100
+- **THEN** o caminho até `SaqueRealizado` usa saldo 100 e valor 20
+
+#### Scenario: Zero quando necessário
+- **WHEN** uma transição tem a guarda `valor <= 0`
+- **THEN** o caminho que a cobre usa valor 0
+
 ### Requirement: Cenários de borda
-Para cada guarda que compara uma variável com um valor ou com outra variável, a geração MUST produzir, quando ativada, um cenário com o valor na fronteira e outro com o valor imediatamente fora dela, respeitando as demais guardas.
+Para cada guarda que compara uma variável com um valor ou com outra variável, a geração MUST produzir, quando ativada, um cenário com o valor na fronteira e outro com o primeiro valor fora dela em que as demais condições da guarda mantêm o resultado que tinham na fronteira.
 
 #### Scenario: Borda do saldo
-- **WHEN** a guarda é `valor <= saldo` com saldo 100 e há a guarda `valor % 20 == 0`
+- **WHEN** a variável de contexto `saldo` declara o valor 100 e a guarda é `valor <= saldo e valor % 20 == 0`
 - **THEN** há um cenário com valor 100 e outro com valor 120
 
 #### Scenario: Evento recusado na borda
 - **WHEN** o valor fora da fronteira não satisfaz nenhuma transição do evento
 - **THEN** o cenário termina com `Então o evento é recusado e o sistema permanece no estado "<estado>"`
+
+#### Scenario: Borda sem valor de fora válido
+- **WHEN** nenhum valor fora da fronteira, dentro do limite de passos, mantém o resultado das demais condições da guarda
+- **THEN** o cenário de borda não é gerado e o relatório de cobertura informa o motivo
 
 ### Requirement: Relatório de cobertura
 A geração MUST informar a porcentagem de estados, transições e critérios de aceite cobertos e listar cada elemento não coberto com o motivo.

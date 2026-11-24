@@ -1,4 +1,8 @@
-# 🤖 QA Autonomous — Geração de Testes com PLN e MBT
+<p><img src="assets/qac-logo-horizontal-claro.svg" alt="QUALITY ASSURANCE CONSULTANT" width="340"></p>
+
+# QUALITY ASSURANCE CONSULTANT — Geração de Testes com PLN e MBT
+
+*De requisitos a testes executáveis.*
 
 > **Projeto Semestral — Processamento de Linguagem Natural (PLN)**  
 > **Instituição:** Faculdade de Tecnologia de Cotia (Fatec Cotia)  
@@ -30,7 +34,8 @@ Os testes rodam contra **sistemas exemplo** reais, em `sistemas_exemplo/`: Login
 | :--- | :---: | :--- |
 | **Interface (Streamlit)** | ✅ Entregue | Entrada de requisitos, grafo, métricas, artefatos e execução. |
 | **Extração do modelo com LLM** | ✅ Entregue | Gemini validado com catálogo; 5 de 6 rodadas concluíram na medição. |
-| **Geração de testes** | ✅ Entregue | Gherkin e Pytest executáveis, cobrindo todas as transições. |
+| **Geração de testes** | ✅ Entregue | Caminhos viáveis (guardas e contadores), bordas e cobertura; Gherkin em português e pytest-bdd com adaptador. |
+| **Exportação** | ✅ Entregue | Download de cada artefato, pacote zip e linha de comando (`python -m backend.cli`). |
 | **Execução e veredito** | ✅ Entregue | Roda nas duas variantes e separa erro do modelo de bug do sistema. |
 | **Ollama local** | 🟡 Parcial | Depende de memória: `llama3.1:8b` não concluiu na máquina medida. |
 | **Histórico (SQLite)** | ⏳ Não iniciado | Fora do escopo atual. |
@@ -63,9 +68,11 @@ Não precisa de chave nem de backend. O grafo usa o Mermaid por CDN, então exig
 streamlit run app.py
 ```
 
-Abra `http://localhost:8501`, escolha **Login bancário** ou **Saque em caixa eletrônico**, clique em **🚀 Gerar Modelo e Testes** e depois em **▶️ Executar testes nas duas variantes**.
+Abra `http://localhost:8501`, escolha **Login bancário** ou **Saque em caixa eletrônico**, clique em **Gerar testes** e depois em **Executar testes** (roda no sistema correto e no sistema com bug).
 
-Na demonstração, o modelo é o de referência do sistema exemplo ou o gabarito do exemplo, e todas as abas mostram o aviso *"Demonstração: modelo de referência, sem LLM"*. A demonstração só exibe exemplos **sem edição**; texto digitado ou editado exige desativar o modo demonstração. Cupom Promocional, Autenticação MFA e Carrinho de Compras ainda não têm sistema exemplo, então mostram o gabarito (com variáveis e guardas) e geram testes como esqueleto.
+O app tem tema claro e escuro, com as cores do design kit, e segue o tema do sistema operacional. Para trocar, abra o menu **⋮** no canto superior direito e escolha **Light**, **Dark** ou **System**. A troca não recarrega a página nem apaga o resultado na tela.
+
+Na demonstração, o modelo é o de referência do sistema exemplo ou o gabarito do exemplo, e todas as abas mostram o aviso *"Demonstração: modelo de referência, sem LLM"*. A demonstração só exibe exemplos **sem edição**; texto digitado ou editado exige desativar o modo demonstração. Cupom Promocional, Autenticação MFA e Carrinho de Compras ainda não têm sistema exemplo, então mostram o gabarito (com variáveis e guardas) e geram os testes com um adaptador em esqueleto.
 
 ### 3. Modo real, com LLM
 
@@ -136,7 +143,7 @@ A resposta informa o modelo de cada provedor, se o modelo do Ollama está dispon
 
 ### Importar requisitos de um arquivo
 
-Na interface, **📂 Importar arquivo** aceita `.txt` ou `.md` com duas seções (maiúsculas e acentos não importam):
+Na interface, **Importar arquivo** aceita `.txt` ou `.md` com duas seções (maiúsculas e acentos não importam):
 
 ```markdown
 # História
@@ -180,7 +187,73 @@ Guardas usam variáveis, literais, `+ - %`, comparações e `e`/`ou`/`não` (ex.
 
 A validação devolve **todos** os erros de uma vez, com código e mensagem, e eles voltam ao LLM junto com o modelo anterior: inicial único, ao menos um final, finais sem saída, todo estado alcançável e com caminho até um final, referências e tipos válidos, todos os critérios cobertos e nenhuma sobreposição de guardas no mesmo estado e evento (verificada por valores de fronteira).
 
-Os sistemas exemplo (Login e Saque) não têm variáveis no catálogo, então contam tentativas com estados (`UmaFalha`, `DuasFalhas`). Os gabaritos de `exemplos/` (Cupom, MFA, Carrinho e Saque ATM) usam variáveis e guardas e aparecem na demonstração. Por enquanto, os caminhos de teste ainda ignoram as guardas, então modelos com guardas geram apenas esqueletos.
+Os sistemas exemplo (Login e Saque) não têm variáveis no catálogo, então contam tentativas com estados (`UmaFalha`, `DuasFalhas`). Os gabaritos de `exemplos/` (Cupom, MFA, Carrinho e Saque ATM) usam variáveis e guardas e aparecem na demonstração. Os caminhos de teste respeitam as guardas e os contadores (veja a seção seguinte).
+
+## 🧪 Geração de testes
+
+Os testes saem do modelo por código determinístico, sem o LLM:
+
+- **Caminhos viáveis.** A busca percorre configurações (estado e valores das variáveis de estado), então cada caminho respeita as guardas e os contadores e termina num estado final. Os valores de contexto e de entrada vêm das fronteiras das guardas, preferindo positivos; um valor de contexto declarado no modelo (`valor_inicial`) é tentado primeiro.
+- **Estratégias.** *Todas as transições* (padrão): poucos caminhos que, juntos, percorrem cada transição. *Caminhos elementares*: busca em profundidade que não repete configuração, até 200 caminhos.
+- **Cenários de borda.** Para cada comparação das guardas (ex.: `valor <= saldo`), um cenário na fronteira e outro com o primeiro valor fora dela que mantém as demais condições. Com saldo 100 e valor múltiplo de 20, são 100 e 120. Se nenhuma transição aceita o valor de fora, o cenário termina com o evento recusado.
+- **Cobertura.** A aba **Cobertura** e o `cobertura.md` do pacote mostram estados, transições e critérios cobertos, o motivo de cada item não coberto e a rastreabilidade de cada caminho (transições, valores e critérios).
+
+O `.feature` usa `# language: pt` e um vocabulário fixo de seis frases, então todo passo tem definição:
+
+```gherkin
+  @CA-2 @CA-4 @caminho-4
+  Cenário: Caminho 4: inserir_cartao → pin_valido → solicitar_saque → SaqueRealizado
+    Dado que o sistema está no estado "Inicio"
+    E que o contexto "saldo" vale 20
+    Quando ocorre o evento "inserir_cartao"
+    Então o sistema está no estado "AguardandoPin"
+    Quando ocorre o evento "pin_valido"
+    Então o sistema está no estado "Autenticado"
+    # guarda: valor <= saldo e valor % 20 == 0
+    Quando ocorre o evento "solicitar_saque" com:
+      | valor | 20 |
+    Então o sistema está no estado "SaqueRealizado"
+```
+
+A sexta frase, `Então o evento é recusado e o sistema permanece no estado "<estado>"`, aparece nos cenários de borda. As tags são `@CA-<n>` (critérios percorridos), `@caminho-<n>`, `@borda` e `@auxiliar` (caminho sem critério).
+
+### Pacote de testes
+
+| Arquivo | Conteúdo |
+| :--- | :--- |
+| `<slug>.feature` | Um cenário por caminho |
+| `test_<slug>.py` | As seis definições de passo (pytest-bdd), sem nenhum texto do modelo |
+| `adaptador_<slug>.py` | Liga os passos ao sistema sob teste |
+| `conftest.py` | Fixture `sistema` (um adaptador novo por cenário) |
+| `<slug>.json` e `<slug>.mmd` | Modelo de estados e diagrama Mermaid |
+| `cobertura.md` e `LEIAME.md` | Cobertura e instruções |
+
+O slug é o id do exemplo (`login`, `saque`, `cupom-promocional`) ou `requisito` para texto livre. Na interface, cada artefato tem seu download, e **Baixar pacote** gera um zip com a pasta `<slug>/`.
+
+O adaptador tem três operações: `definir_contexto(nome, valor)`, `disparar(evento, dados)`, que devolve `True` se o sistema aceitou o evento, e `estado_atual`. Com sistema alvo, ele usa o sistema exemplo. Sem sistema, é um esqueleto, e cada cenário falha com *"Implemente o adaptador do sistema sob teste"* até ele ser implementado.
+
+### Linha de comando
+
+Gera o mesmo pacote sem a interface web:
+
+```bash
+# A partir de um modelo JSON (ou de um gabarito de exemplos/), sem LLM
+python -m backend.cli gerar --modelo exemplos/saque-atm.json --saida saida/saque-atm
+
+# A partir de um requisito com as seções "# História" e "# Critérios", extraindo o modelo com um provedor
+python -m backend.cli gerar --requisito requisito.md --motor ollama --sistema login --saida saida/login
+```
+
+| Opção | Uso |
+| :--- | :--- |
+| `--modelo` | Modelo de estados em JSON; o modelo é validado antes da geração |
+| `--requisito` e `--motor` | Arquivo de requisitos e provedor do LLM (`ollama`, `gemini`, `openai_compat`, `anthropic`) |
+| `--sistema` | Sistema exemplo alvo (`login`, `saque`); sem ele, o adaptador é um esqueleto |
+| `--estrategia` | `transicoes` (padrão) ou `elementares` |
+| `--sem-borda` | Não gera os cenários de borda |
+| `--saida` | Diretório onde o pacote é gravado |
+
+Depois, a partir da raiz: `python -m pytest saida/saque-atm`.
 
 ## 📏 Avaliação da extração
 
@@ -210,7 +283,7 @@ A execução sempre roda as duas variantes, e a variante correta é tratada como
 
 ### Rodar os arquivos baixados
 
-Salve o `.feature` e o script em uma mesma pasta dentro do projeto e rode, a partir da raiz:
+Descompacte o pacote na raiz do projeto (ou salve os arquivos numa mesma pasta dentro dele) e rode, a partir da raiz:
 
 ```bash
 python -m pytest <pasta>
@@ -249,7 +322,13 @@ qa_auto/
 │   ├── provedores/       # Registro: ollama, gemini, openai_compat, anthropic
 │   ├── servico.py        # Extração com retry e orçamento de tempo
 │   ├── validacao.py      # Regras do modelo, com todos os erros de uma vez
-│   ├── geracao.py        # Caminhos, Gherkin, Pytest e grafo
+│   ├── caminhos.py       # Caminhos viáveis, estratégias e cenários de borda
+│   ├── cobertura.py      # Relatório de cobertura
+│   ├── compilador_gherkin.py  # Gherkin em português com vocabulário fixo
+│   ├── gerador_pytest.py # Teste pytest-bdd, adaptador, conftest e LEIAME
+│   ├── simulador.py      # Execução do modelo (busca e adaptador de simulação)
+│   ├── geracao.py        # Artefatos, diagrama e pacote zip
+│   ├── cli.py            # Linha de comando: python -m backend.cli gerar
 │   └── execucao.py       # Execução e veredito
 │
 ├── sistemas_exemplo/     # Sistemas alvo dos testes
@@ -272,7 +351,7 @@ qa_auto/
 - **Streamlit** e **Mermaid.js:** interface e grafo de estados.
 - **FastAPI** e **Pydantic:** API e validação.
 - **Gemini** e **Ollama:** extração do modelo.
-- **pytest** e **pytest-bdd:** execução dos testes gerados.
+- **pytest**, **pytest-bdd** e **gherkin-official:** execução e validação dos testes gerados.
 
 ---
 

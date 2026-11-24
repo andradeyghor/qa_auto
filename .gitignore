@@ -30,3 +30,6 @@ desktop.ini
 
 # Resultados das avaliações (a linha de base fica em docs/avaliacao/)
 resultados/
+
+# Pacotes gerados pela linha de comando (python -m backend.cli gerar --saida saida/...)
+saida/

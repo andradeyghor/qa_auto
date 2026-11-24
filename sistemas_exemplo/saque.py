@@ -50,50 +50,57 @@ class Saque(SistemaExemplo):
             return ("SemErroPin", "UmErroPin", "DoisErrosPin")[self.erros_pin]
         return "AguardandoCartao"
 
-    def inserir_cartao(self) -> None:
-        if not self.cartao_inserido:
-            self.cartao_inserido = True
+    def inserir_cartao(self) -> bool:
+        if self.cartao_inserido:
+            return False
+        self.cartao_inserido = True
+        return True
 
-    def informar_pin(self, correto: bool) -> None:
+    def informar_pin(self, correto: bool) -> bool:
         if not self.cartao_inserido or self.autenticado or self.retido:
-            return
+            return False
         if correto:
             self.autenticado = True
             self.erros_pin = 0
-            return
+            return True
         self.erros_pin += 1
         if self.erros_pin >= LIMITE_ERROS_PIN:
             self.retido = True
+        return True
 
     def _saque_permitido(self, valor: int) -> bool:
         return valor <= self.saldo
 
-    def sacar(self, valor: int) -> None:
+    def sacar(self, valor: int) -> bool:
+        """Devolve False quando não há cliente autenticado, há notas pendentes ou o saque é recusado."""
         if not self.autenticado or self.notas_pendentes:
-            return
-        if self._saque_permitido(valor):
-            self.saldo -= valor
-            self.notas_pendentes = True
+            return False
+        if not self._saque_permitido(valor):
+            return False
+        self.saldo -= valor
+        self.notas_pendentes = True
+        return True
 
-    def retirar_notas(self) -> None:
-        if self.notas_pendentes:
-            self.notas_pendentes = False
-            self.autenticado = False
-            self.cartao_inserido = False
+    def retirar_notas(self) -> bool:
+        if not self.notas_pendentes:
+            return False
+        self.notas_pendentes = False
+        self.autenticado = False
+        self.cartao_inserido = False
+        return True
 
-    def _aplicar(self, evento: str) -> None:
+    def _aplicar(self, evento: str, dados: dict) -> bool:
         if evento == "inserir_cartao":
-            self.inserir_cartao()
-        elif evento == "pin_correto":
-            self.informar_pin(True)
-        elif evento == "pin_incorreto":
-            self.informar_pin(False)
-        elif evento == "sacar_com_saldo":
-            self.sacar(VALOR_SAQUE)
-        elif evento == "sacar_sem_saldo":
-            self.sacar(self.saldo + VALOR_SAQUE)
-        else:
-            self.retirar_notas()
+            return self.inserir_cartao()
+        if evento == "pin_correto":
+            return self.informar_pin(True)
+        if evento == "pin_incorreto":
+            return self.informar_pin(False)
+        if evento == "sacar_com_saldo":
+            return self.sacar(VALOR_SAQUE)
+        if evento == "sacar_sem_saldo":
+            return self.sacar(self.saldo + VALOR_SAQUE)
+        return self.retirar_notas()
 
 
 class SaqueComBug(Saque):
